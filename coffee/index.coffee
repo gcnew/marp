@@ -106,6 +106,40 @@ class EditorStates
 
     @codeMirror.on 'cursorActivity', (cm) => window.setTimeout (=> @refreshPage()), 5
 
+  changePage: (delta) =>
+    page = @currentPage + delta
+    if @rulers and page > 0 and page <= (@rulers.length + 1)
+      @currentPage = page
+
+      @preview.send 'currentPage', @currentPage if @previewInitialized
+
+      $('#page-indicator').text "Page #{@currentPage} / #{@rulers.length + 1}"
+
+  hideEditor: =>
+    $('.pane.markdown').hide()
+    $('.pane-splitter.right').hide()
+    $('.toolbar.toolbar-footer').hide()
+
+    $('body').on 'keyup.presentation-mode', (e) =>
+      if e.keyCode is 27
+        MdsRenderer.sendToMain 'viewMode', 'screen'
+        return
+
+      # left and up - back
+      if e.keyCode is 37 or e.keyCode is 38
+        @changePage -1
+
+      # right and down - forward
+      if e.keyCode is 39 or e.keyCode is 40
+        @changePage 1
+
+  showEditor: =>
+    $('.pane.markdown').show()
+    $('.pane-splitter.right').show()
+    $('.toolbar.toolbar-footer').show()
+
+    $('body').off 'keyup.presentation-mode'
+
   setImageDirectory: (directory) =>
     if @previewInitialized
       @preview.send 'setImageDirectory', directory
@@ -247,10 +281,15 @@ do ->
       MdsRenderer.sendToMain 'initializeState', fname
 
     .on 'viewMode', (mode) ->
+      if (mode is 'presentation')
+        editorStates.hideEditor()
+      else
+        editorStates.showEditor()
+
       switch mode
         when 'markdown'
           editorStates.preview.send 'setClass', ''
-        when 'screen'
+        when 'screen', 'presentation'
           editorStates.preview.send 'setClass', 'slide-view screen'
         when 'list'
           editorStates.preview.send 'setClass', 'slide-view list'
